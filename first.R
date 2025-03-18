@@ -1,4 +1,4 @@
-# Load required packages
+# Load packages
 library(data.table)   # Faster data import
 library(tidyverse)    # Data manipulation and visualization
 library(gridExtra)    # Multi-plot arrangement
