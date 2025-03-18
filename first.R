@@ -1,8 +1,8 @@
 # Load packages
-library(data.table)   # Faster data import
-library(tidyverse)    # Data manipulation and visualization
-library(gridExtra)    # Multi-plot arrangement
-library(scales)       # Percentage formatting
+library(data.table)   # Faster data import than tidyverse (?)
+library(gridExtra)    # for Multi-plot arrangement
+library(scales)       # for percentage formatting on some plots
+library(tidyverse) # comm
 
 # Define file path
 file_path <- "D:/smyl/Labo/projects/KD NCL HCT116/Analyses HCS/#4281/Evaluation8/Objects_Population - Nuclei Valid Selected.txt"
