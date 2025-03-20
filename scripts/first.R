@@ -3,6 +3,7 @@ library(data.table)   # Faster import than w/ tidyverse (not checked if true)
 library(gridExtra)    # for Multi-plot arrangement
 library(scales)       # for percentage formatting on some plots
 library(tidyverse)  # fake comm
+library(here)
 
 # Define file path
 file_path <- "D:/smyl/Labo/projects/KD NCL HCT116/Analyses HCS/#4281/Evaluation8/Objects_Population - Nuclei Valid Selected.txt"
@@ -18,7 +19,7 @@ cols_to_load <- fread("D:/smyl/Labo/projects/KD NCL HCT116/Analyses HCS/R/toto2.
   deframe()  # Convert tibble to named vector
 
 # Read & preprocess data (use fread for speed)
-data <- fread(file_path, skip = 9, dec = ",") %>%
+data.wide <- fread(file_path, skip = 9, dec = ",") %>%
   select(names(cols_to_load)) %>%
   rename_with(~ cols_to_load[.x]) %>%
   mutate(
@@ -30,8 +31,9 @@ data <- fread(file_path, skip = 9, dec = ",") %>%
     ),
     `Cell type` = factor(`Cell type`, levels = c("NS-1", "22-2", "22-6")),
     `Compound` = factor(`Compound`, levels = c("noDox", "Dox"))
-  ) %>%
-  pivot_longer(cols = -c(Compound, `Cell type`, Antibody), names_to = "Measurements", values_to = "Value")
+  ) 
+  data_long <- data.wide %>% 
+    pivot_longer(cols = -c(Compound, `Cell type`, Antibody), names_to = "Measurements", values_to = "Value")
 
 # Define parameters to plot
 measurements_to_plot <- c(
@@ -44,7 +46,7 @@ measurements_to_plot <- c(
 
 # Optimize the plotting function
 Harry <- function(param_to_be_plotted) {
-  ggplot(filter(data, Measurements == param_to_be_plotted), aes(x = Compound, y = Value, fill = Compound)) +
+  ggplot(filter(data_long, Measurements == param_to_be_plotted), aes(x = Compound, y = Value, fill = Compound)) +
     geom_violin(trim = FALSE) + 
     geom_boxplot(width = 0.1, fill = "white", alpha = 0.5) +  
     facet_wrap(~ `Cell type`) +
@@ -57,7 +59,7 @@ Harry <- function(param_to_be_plotted) {
 plots_list <- map(measurements_to_plot, Harry)
 
 # Process Nuclei class separately and create stacked histogram 
-data_for_Nuclei_class_plot <- data %>%
+data_for_Nuclei_class_plot <- data_long %>%
   filter(Measurements == "Nuclei class") %>%
   mutate(Value = factor(
     case_when(
