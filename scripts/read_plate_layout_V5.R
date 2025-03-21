@@ -1,6 +1,6 @@
 # Parse and graph Revvity XML plate assay definition.
 # should work with any user defined parameters
-# and any plate type are these are not hard coded
+# and any plate types are these are not hard coded
 
 library(here)
 library(xml2)
