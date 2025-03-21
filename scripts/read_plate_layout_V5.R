@@ -2,10 +2,13 @@
 # should work with any user defined parameters
 # and any plate types are these are not hard coded
 
-library(here)
-library(xml2)
-library(tidyverse)
-library(gridExtra)
+lib2load <- c("here", "xml2", "tidyverse", "gridExtra")
+lapply(lib2load, library, character.only = TRUE)
+
+# library(here)
+# library(xml2)
+# library(tidyverse)
+# library(gridExtra)
 
 rm(list = ls())
 
