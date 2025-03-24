@@ -5,24 +5,18 @@
 lib2load <- c("here", "xml2", "tidyverse", "gridExtra")
 lapply(lib2load, library, character.only = TRUE)
 
-# library(here)
-# library(xml2)
-# library(tidyverse)
-# library(gridExtra)
-
 rm(list = ls())
 
-# The XML to be reated
+# The XML to be treated
 xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
 
-# Load the XML; here() gives github/R directory structure consistency
-# need to clean the toxic Revvity declarations
-# Rem: Couldn't get  specs from Revvity www
+# Load XML; here() gives github/R directory structure consistency
+# clean the toxic Revvity declarations; no  specs from Revvity www
 xml_pathAndFile <- here("data", xml_file)
-xml_text <- readLines(xml_pathAndFile, warn = FALSE)  # Read as text rather that XML parse
-xml_text_clean <- gsub('xmlns="[^"]+"', '', xml_text) # forcefully remove "xmlns=..." that kills xms2
+xml_text <- readLines(xml_pathAndFile, warn = FALSE)  # Read as text rather that XML
+xml_text_clean <- gsub('xmlns="[^"]+"', '', xml_text) # remove "xmlns=..." that kills xms2
 
-# XML2 parse the cleaned XML
+# XML2 parse the cleaned XML.
 xml_data <- read_xml(paste(xml_text_clean, collapse = "\n"))
 
 # Extract all well nodes
