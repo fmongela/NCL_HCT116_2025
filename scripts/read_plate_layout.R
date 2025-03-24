@@ -1,4 +1,4 @@
-library(xml2) # cool stuff
+library(xml2)
 library(tidyverse)
 
 # Load the XML file
