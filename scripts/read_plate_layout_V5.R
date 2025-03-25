@@ -18,8 +18,8 @@ xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
 # Load the XML; here() gives github/R directory structure consistency
 # need to clean the toxic Revvity declarations
 # Rem: Couldn't get  specs from Revvity www
-xml_pathAndFile <- here("data", xml_file)
-xml_text <- readLines(xml_pathAndFile, warn = FALSE)  # Read as text rather that XML parse
+path_file <- here("data", xml_file)
+xml_text <- readLines(path_file, warn = FALSE)  # Read as text rather that XML parse
 xml_text_clean <- gsub('xmlns="[^"]+"', '', xml_text) # forcefully remove "xmlns=..." that kills xms2
 
 # XML2 parse the cleaned XML
