@@ -1,6 +1,7 @@
 # Parse and graph Revvity XML plate assay definition.
 # should work with any user defined parameters
 # and any plate types are these are not hard coded
+# clunky but works
 
 lib2load <- c("here", "xml2", "tidyverse", "gridExtra")
 lapply(lib2load, library, character.only = TRUE)
