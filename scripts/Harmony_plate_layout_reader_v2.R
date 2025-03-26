@@ -5,10 +5,11 @@
 
 rm(list = ls())
 starttime <- Sys.time()
-lib2load <- c("here", "xml2", "tidyverse", "patchwork")
+lib2load <- c("here", "xml2", "tidyverse", "patchwork", "openxlsx", "tools")
 lapply(lib2load, library, character.only = TRUE)
 
 xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
+filename_root <- file_path_sans_ext(xml_file)
 doc <- read_xml(here("data", xml_file)) # keep stuff in github tracked dirs
 
 ns <- xml_ns_rename(xml_ns(doc), d1 = "ns") # Rename namespace
@@ -43,8 +44,7 @@ data_list <- lapply(wells, function(well) {
 plate_layout_tibble <- bind_rows(data_list) %>% 
   select(where(~!all(is.na(.))))
 
-# Try to deal wuth any plate format
-# And try to deal with partial scans
+# Try to deal w/ any plate format and try to deal with partial definition
 nb_rows <- length(unique(plate_layout_tibble$Row))
 first_row_number <- min(plate_layout_tibble$Row, na.rm = TRUE)
 last_row_number <- max(plate_layout_tibble$Row, na.rm = TRUE)
@@ -86,7 +86,7 @@ if (requireNamespace("rstudioapi", quietly = TRUE)) {
 }
 
 combined_plot <- wrap_plots(plot_list) # to work w/ library patchwork
-combined_plot +
+patchwork_combined_plot <- combined_plot +
   plot_layout(ncol = 2,
               widths = unit(c(12 / 2.25), "cm"),  
               heights = unit(c(8 / 2.25), "cm")) +
@@ -98,4 +98,90 @@ combined_plot +
       plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
       plot.subtitle = element_text(size = 12, hjust = 0.5))
     )
+
+patchwork_combined_plot
+
+# Save as PDF
+ggsave(
+  filename = sprintf(here("Results", paste0(filename_root, ".pdf"))),  
+  plot = patchwork_combined_plot,       
+  device = "pdf",            
+  width = 21,                
+  height = 29.7,                
+  units = "cm",              
+  dpi = 300                  
+)
+
+# save excel sheets with colors
+
+# Function to generate color styles based on unique values
+get_color_styles <- function(values) {
+  unique_values <- unique(values)
+  colors <- grDevices::rainbow(length(unique_values))  # Generate unique colors
+  styles <- setNames(lapply(colors, function(color) createStyle(fgFill = color)), unique_values)
+  return(styles)
+}
+
+
+
+#  Create the workbook
+wb <- createWorkbook()
+
+library(RColorBrewer)
+
+get_color_styles <- function(values) {
+  unique_values <- unique(na.omit(values))  # Remove NAs
+  
+  # Select color palette dynamically based on the number of unique values
+  num_colors <- length(unique_values)
+  
+  # Use Set3 if categories are below 12, otherwise use Spectral or interpolate
+  if (num_colors <= 12) {
+    colors <- brewer.pal(num_colors, "Set3")
+  } else {
+    colors <- colorRampPalette(brewer.pal(9, "Spectral"))(num_colors)
+  }
+  
+  # Create styles
+  styles <- setNames(lapply(colors, function(color) createStyle(fgFill = color)), unique_values)
+  return(styles)
+}
+
+
+#  var_list is not empty ?
+if (length(var_list) == 0) stop("var_list is empty, please check your input.")
+
+# Loop over each content_id in var_list
+for (content_id in var_list) {
+  
+  # select along variable and pivot data
+  sub_layout <- plate_layout_tibble %>% 
+    select(all_of(c("Row", "Column", content_id))) %>%
+    pivot_wider(names_from = Column, values_from = content_id)
+  
+  # Add worksheet
+  addWorksheet(wb, content_id)
+  writeData(wb, content_id, sub_layout, withFilter = TRUE)
+  
+  # Extract unique values for coloring (EXCLUDE first column "Row")
+  unique_values <- unlist(sub_layout[, -1])  # Exclude first column
+  styles <- get_color_styles(unique_values)
+  
+  # Apply styles ONLY to the data (skip the first column)
+  for (row in 2:(nrow(sub_layout) + 1)) {  # Start from row 2 (skip headers)
+    for (col in 2:ncol(sub_layout)) {  # Start from column 2 (skip "Row")
+      cell_value <- as.character(sub_layout[row - 1, col])  # Adjust for Excel indexing
+      if (!is.na(cell_value) && cell_value %in% names(styles)) {
+        addStyle(wb, content_id, styles[[cell_value]], rows = row, cols = col, gridExpand = FALSE)
+      }
+    }
+  }
+}
+
+# Save  Excel file
+
+saveWorkbook(wb, here("results", paste0(filename_root, ".xlsx")), overwrite = TRUE)
+
+print(" Export completed: File saved in 'results/sub_layouts.xlsx'")
+
 print(Sys.time() - starttime)
