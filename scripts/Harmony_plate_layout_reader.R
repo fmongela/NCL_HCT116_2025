@@ -1,15 +1,14 @@
-# Parse and graph Revvity XML plate assay definitions.
-# should work with any user defined parameters are these are not hard coded
-# Work for 96well plates, needs work to adapt to other formats
-# not good yet for partial scan.
-# rem: Revvity XML specs not found on www
-
+# Parse and plot Revvity's Harmony XML plate assay definitions.
+# should work with any user defined parameters, are these are extracted, not hardcoded
+# work for 96well plates, should work for other plate formats & partial scans (?)
+# rem: Revvity XML spec sheet not found on www
 rm(list = ls())
+starttime <- Sys.time()
 lib2load <- c("here", "xml2", "tidyverse", "patchwork")
 lapply(lib2load, library, character.only = TRUE)
 
 xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
-doc <- read_xml(here("data", xml_file)) # keep stuff in tracked dirs
+doc <- read_xml(here("data", xml_file)) # keep stuff in github tracked dirs
 
 ns <- xml_ns_rename(xml_ns(doc), d1 = "ns") # Rename namespace
 
@@ -41,23 +40,33 @@ data_list <- lapply(wells, function(well) {
 
 # assemble and clean final tibble
 plate_layout_tibble <- bind_rows(data_list) %>% 
-  select(where(~!all(is.na(.)))) %>%
+  select(where(~!all(is.na(.))))
+
+# Try to deal wuth any plate format
+# And try to deal with partial scans
+nb_rows <- length(unique(plate_layout_tibble$Row))
+first_row_number <- min(plate_layout_tibble$Row, na.rm = TRUE)
+last_row_number <- max(plate_layout_tibble$Row, na.rm = TRUE)
+
+plate_layout_tibble <- plate_layout_tibble %>%
   mutate(Row = LETTERS[as.numeric(Row)]) # in XML column ID is numeric 
 print(plate_layout_tibble)
 
-nb_rows <- length(unique(plate_layout_tibble$Row))
+
 
 # Function to plot grid for a given variable
 plot_plate <- function(data, variable, title) 
 {ggplot(data, aes(x = Column, y = Row, fill = .data[[variable]])) +
     geom_tile(color = "black") +
-    scale_y_discrete(limits = rev(LETTERS[1:nb_rows])) +  # Ensure A is at the top
+    scale_y_discrete(limits = rev(LETTERS[first_row_number:last_row_number])) +  # Ensure A is at the top
     scale_x_continuous(breaks = 1:12) +
     labs(title = title, x = "Column", y = "Row") +
     theme_minimal() +
+    theme(legend.position = "right") +
     theme(
-      axis.text.x = element_text(size = 8, angle = 0),
-      axis.text.y = element_text(size = 8),
+      plot.title = element_text(size = 10),
+      axis.text.x = element_text(size =5, angle = 0),
+      axis.text.y = element_text(size = 5),
       legend.title = element_blank()
     )
 }
@@ -75,9 +84,9 @@ if (requireNamespace("rstudioapi", quietly = TRUE)) {
   current_script <- "unknown_script.R"
 }
 
-combined_plot <- wrap_plots(plot_list)
+combined_plot <- wrap_plots(plot_list) # to work w/ library patchwork
 combined_plot +
-  plot_layout(ncol = 1,
+  plot_layout(ncol = 2,
               widths = unit(c(12 / 2.25), "cm"),  
               heights = unit(c(8 / 2.25), "cm")) +
   plot_annotation(
@@ -86,7 +95,6 @@ combined_plot +
     caption = paste0("Script: ", current_script, ", ", today()),
     theme = theme(
       plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
-      plot.subtitle = element_text(size = 12, hjust = 0.5),
-      plot.caption = element_text(color = "gray40")
+      plot.subtitle = element_text(size = 12, hjust = 0.5))
     )
-  )
+print(Sys.time() - starttime)
