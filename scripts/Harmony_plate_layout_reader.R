@@ -9,7 +9,7 @@ lib2load <- c("here", "xml2", "tidyverse", "patchwork")
 lapply(lib2load, library, character.only = TRUE)
 
 xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
-doc <- read_xml(here("data", xml_file))
+doc <- read_xml(here("data", xml_file)) # keep stuff in tracked dirs
 
 ns <- xml_ns_rename(xml_ns(doc), d1 = "ns") # Rename namespace
 
@@ -39,7 +39,7 @@ data_list <- lapply(wells, function(well) {
   return(well_data)
 })
 
-# assembleand clean final tibble
+# assemble and clean final tibble
 plate_layout_tibble <- bind_rows(data_list) %>% 
   select(where(~!all(is.na(.)))) %>%
   mutate(Row = LETTERS[as.numeric(Row)]) # in XML column ID is numeric 
