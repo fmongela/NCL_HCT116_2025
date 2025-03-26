@@ -1,6 +1,7 @@
 # Parse and graph Revvity XML plate assay definitions.
 # should work with any user defined parameters are these are not hard coded
 # Work for 96well plates, needs work to adapt to other formats
+# not good yet for partial scan.
 # rem: Revvity XML specs not found on www
 
 rm(list = ls())
@@ -44,11 +45,13 @@ plate_layout_tibble <- bind_rows(data_list) %>%
   mutate(Row = LETTERS[as.numeric(Row)]) # in XML column ID is numeric 
 print(plate_layout_tibble)
 
+nb_rows <- length(unique(plate_layout_tibble$Row))
+
 # Function to plot grid for a given variable
 plot_plate <- function(data, variable, title) 
 {ggplot(data, aes(x = Column, y = Row, fill = .data[[variable]])) +
     geom_tile(color = "black") +
-    scale_y_discrete(limits = rev(LETTERS[1:8])) +  # Ensure A is at the top
+    scale_y_discrete(limits = rev(LETTERS[1:nb_rows])) +  # Ensure A is at the top
     scale_x_continuous(breaks = 1:12) +
     labs(title = title, x = "Column", y = "Row") +
     theme_minimal() +
@@ -74,9 +77,9 @@ if (requireNamespace("rstudioapi", quietly = TRUE)) {
 
 combined_plot <- wrap_plots(plot_list)
 combined_plot +
-  plot_layout(ncol = 2,
-  widths = unit(c(12 / 2.25), "cm"),  
-  heights = unit(c(8 / 2.25), "cm")) +
+  plot_layout(ncol = 1,
+              widths = unit(c(12 / 2.25), "cm"),  
+              heights = unit(c(8 / 2.25), "cm")) +
   plot_annotation(
     title = paste("Layout: ", xml_file),
     subtitle = " ",
