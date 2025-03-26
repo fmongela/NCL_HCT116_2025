@@ -5,7 +5,7 @@
 
 rm(list = ls())
 starttime <- Sys.time()
-lib2load <- c("here", "xml2", "tidyverse", "patchwork")
+lib2load <- c("here", "xml2", "tidyverse", "patchwork", "openxlsx")
 lapply(lib2load, library, character.only = TRUE)
 
 xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
@@ -43,8 +43,7 @@ data_list <- lapply(wells, function(well) {
 plate_layout_tibble <- bind_rows(data_list) %>% 
   select(where(~!all(is.na(.))))
 
-# Try to deal wuth any plate format
-# And try to deal with partial scans
+# Try to deal w/ any plate format and try to deal with partial definition
 nb_rows <- length(unique(plate_layout_tibble$Row))
 first_row_number <- min(plate_layout_tibble$Row, na.rm = TRUE)
 last_row_number <- max(plate_layout_tibble$Row, na.rm = TRUE)
@@ -99,3 +98,44 @@ combined_plot +
       plot.subtitle = element_text(size = 12, hjust = 0.5))
     )
 print(Sys.time() - starttime)
+
+# save excel sheets
+
+# Function to generate color styles based on unique values
+get_color_styles <- function(values) {
+  unique_values <- unique(values)
+  colors <- grDevices::rainbow(length(unique_values))  # Generate unique colors
+  styles <- setNames(lapply(colors, function(color) createStyle(fgFill = color)), unique_values)
+  return(styles)
+}
+
+
+# Create a new workbook
+wb <- createWorkbook()
+
+# Apply transformation and add to the workbook
+for (content_id in var_list) {
+  sub_layout <- plate_layout_tibble %>% 
+    select(all_of(c("Row", "Column", content_id))) %>%
+    pivot_wider(names_from = Column, values_from = content_id)
+  
+  addWorksheet(wb, content_id)  # Create a new sheet for each content_id
+  writeData(wb, content_id, sub_layout, withFilter = TRUE)
+  
+  # Generate styles based on unique values
+  unique_values <- unlist(sub_layout[, -1])  # Exclude first column (Row)
+  styles <- get_color_styles(unique_values)
+  
+  # Apply styles to the cells
+  for (row in 2:(nrow(sub_layout) + 1)) {
+    for (col in 2:(ncol(sub_layout) + 1)) {
+      cell_value <- as.character(sub_layout[row - 1, col - 1])  # Adjust for Excel indexing
+      if (!is.na(cell_value) && cell_value %in% names(styles)) {
+        addStyle(wb, content_id, styles[[cell_value]], rows = row, cols = col, gridExpand = FALSE)
+      }
+    }
+  }
+}
+
+# Save the workbook
+saveWorkbook(wb, here("results", "sub_layouts.xlsx"), overwrite = TRUE)
