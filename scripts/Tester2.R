@@ -1,7 +1,7 @@
 # Parse and graph Revvity XML plate assay definition.
 # should work with any user defined parameters
 # and any plate types are these are not hard coded
-
+library(tidyverse)
 rm(list = ls())
 lib2load <- c("here", "xml2", "tidyverse", "gridExtra")
 lapply(lib2load, library, character.only = TRUE)
@@ -39,15 +39,16 @@ data_list <- lapply(wells, function(well) {
   return(well_data)
 })
 
-plate_layout_tibble <- bind_rows(data_list) %>% select(where(~!all(is.na(.))))
-
+plate_layout_tibble <- bind_rows(data_list) %>% 
+  select(where(~!all(is.na(.)))) %>%
+  mutate(Row = LETTERS[as.numeric(Row)]) 
 # Print the tibble
 print(plate_layout_tibble)
 
 # Function to plot grid for a given variable
 plot_plate <- function(data, variable, title) {
   
-  ggplot(data, aes(x = Column, y = Row, fill = variable)) +
+  ggplot(data, aes(x = Column, y = Row, fill = .data[[variable]])) +
     geom_tile(color = "black") +
     scale_y_discrete(limits = rev(LETTERS[1:8])) +  # Ensure A is at the top
     scale_x_discrete(breaks = 1:12) +
@@ -68,10 +69,10 @@ plots <- map(var_list, function(content_id) {
   
 })
 
-
-# Remove NULL plots (those that failed), if any
-plots <- Filter(Negate(is.null), plots)
-do.call(grid.arrange, c(plots, ncol = 1))
-
-  
-plots
+# 
+# # Remove NULL plots (those that failed), if any
+# plots <- Filter(Negate(is.null), plots)
+# do.call(grid.arrange, c(plots, ncol = 1))
+# 
+#   
+# plots
