@@ -6,11 +6,11 @@
 rm(list = ls())
 starttime <- Sys.time()
 
+library(openxlsx2)
 library(here)
 library(xml2)
 library(tidyverse)
 library(patchwork)
-library(openxlsx)
 library(tools)
 library(RColorBrewer)
 
@@ -24,28 +24,36 @@ ns <- xml_ns_rename(xml_ns(doc), d1 = "ns")
 
 # Extract GroupName attributes from <Registration>
 group_names <- xml_find_all(doc, ".//ns:Registration/ns:Content", ns) %>%
-  map_df(~ tibble(Content_ID = xml_attr(.x, "ID"), GroupName = xml_attr(.x, "GroupName")))
+  map_df( ~ tibble(
+    Content_ID = xml_attr(.x, "ID"),
+    GroupName = xml_attr(.x, "GroupName")
+  ))
 
 # Extract well data dynamically
 plate_layout_tibble <- xml_find_all(doc, ".//ns:Well", ns) %>%
-  map_df(~ {
+  map_df( ~ {
     well <- .x
-    print(well)
-    data <- tibble( # Create a tibble
+        data <- tibble(
+      # Create a tibble
       Well_ID = xml_attr(well, "WellID"),
       Row = as.integer(xml_attr(well, "Row")),
       Column = as.integer(xml_attr(well, "Column"))
     )
-    # Add columns corresponding to each experimental variable    
+    # Add columns corresponding to each experimental variable
     for (i in seq_along(group_names$Content_ID)) {
       content_id <- group_names$Content_ID[i]
       group_name <- group_names$GroupName[i]
-      value <- xml_text(xml_find_first(well, paste0("./ns:Content[@ContentID='", content_id, "']/ns:Value"), ns))
-      data[[group_name]] <- ifelse(is.na(value) | value == "", NA, value)
+      value <- xml_text(xml_find_first(
+        well,
+        paste0("./ns:Content[@ContentID='", content_id, "']/ns:Value"),
+        ns
+      ))
+      data[[group_name]] <- ifelse(is.na(value) |
+                                     value == "", NA, value)
     }
     data
   }) %>%
-  select(where(~ !all(is.na(.)))) %>%
+  select(where( ~ !all(is.na(.)))) %>%
   mutate(Row = LETTERS[pmin(Row, length(LETTERS))])
 
 # Define plot function
@@ -56,9 +64,11 @@ plot_plate <- function(data, variable, title) {
     scale_x_continuous(breaks = 1:max(data$Column, na.rm = TRUE)) +
     labs(title = title, x = "Column", y = "Row") +
     theme_minimal() +
-    theme(legend.position = "right",
-          plot.title = element_text(size = 10),
-          axis.text = element_text(size = 5))
+    theme(
+      legend.position = "right",
+      plot.title = element_text(size = 10),
+      axis.text = element_text(size = 5)
+    )
 }
 
 # Generate plots
@@ -67,46 +77,64 @@ plot_list <- map(var_list, ~ plot_plate(plate_layout_tibble, .x, sprintf("Variab
 
 # Combine plots
 combined_plot <- wrap_plots(plot_list) +
-  plot_layout(ncol = 2) +
+  plot_layout(ncol = 2,
+              widths = unit(c(12 / 2), "cm"),  
+              heights = unit(c(8 / 2), "cm")) +
   plot_annotation(title = paste("Layout:", xml_file))
 
 combined_plot
 
 # Save PDF
-ggsave(here("Results", paste0(filename_root, ".pdf")), plot = combined_plot, device = "pdf", width = 21, height = 29.7, units = "cm", dpi = 300)
+ggsave(
+  here("Results", paste0(filename_root, ".pdf")),
+  plot = combined_plot,
+  device = "pdf",
+  width = 21,
+  height = 29.7,
+  units = "cm",
+  dpi = 300
+)
 
 # Create Excel workbook
-wb <- createWorkbook()
-
-get_color_styles <- function(values) {
-  unique_values <- unique(na.omit(values))
-  colors <- if (length(unique_values) < 3) {
-    brewer.pal(3, "Set3")[seq_along(unique_values)]
-  } else if (length(unique_values) <= 12) {
-    brewer.pal(length(unique_values), "Set3")
-  } else {
-    colorRampPalette(brewer.pal(9, "Spectral"))(length(unique_values))
-  }
-  setNames(lapply(colors, function(color) createStyle(fgFill = color)), as.character(unique_values))
-}
+# Create a workbook
+wb <- wb_workbook()
 
 walk(var_list, ~ {
-  sub_layout <- plate_layout_tibble %>%
+  sub_layout <- plate_layout_tibble %>% # make a tibble per experimental variable
     select(Row, Column, .x) %>%
     pivot_wider(names_from = Column, values_from = .x) #
-  addWorksheet(wb, .x)
-  writeData(wb, .x, sub_layout, withFilter = TRUE)
+  print(sub_layout)
+  var_en_cours <- .x
   
-  styles <- get_color_styles(unlist(sub_layout[, -1]))
-  for (row in seq_len(nrow(sub_layout))) {
-    for (col in seq_len(ncol(sub_layout))[-1]) {
-      cell_value <- sub_layout[row, col, drop = TRUE]
-      if (!is.na(cell_value) && cell_value %in% names(styles)) {
-        addStyle(wb, .x, styles[[cell_value]], rows = row + 1, cols = col, gridExpand = FALSE)
-      }
-    }
-  }
+  # Add sample data
+      wb <- wb_add_worksheet(wb, var_en_cours)
+      wb <- wb_add_data(wb, sheet = var_en_cours, x = sub_layout, start_row = 1, start_col = 1)
+  
+      unique_var_values <- sub_layout %>%
+    slice(-1) %>%  # Remove first row
+    select(-1) %>%  # Remove first column
+    unlist() %>%
+    table() %>%
+    names()
+  
+num_colors <- length(unique_var_values)
+palette_colors <- head(brewer.pal(min(num_colors, 12), "Set3"),num_colors)   
+color_map <- tibble (unique_var_values, palette_colors)
+       
+# # Apply conditional formatting for each unique value
+# 
+#  for (value in unique_var_values) {
+#    
+#    # Create a style with pink background
+#    wb <- wb_add_dxfs_style(wb, name = "pink_fill", bg_fill = wb_color(hex = "FFC0CB"))
+#    
+#    # Apply conditional formatting with the specified rule and style
+#    wb <- wb_add_conditional_formatting(wb, sheet = var_en_cours, cols = 1, rows = 2:5,
+#         type = "containsText", rule = sprintf(value), style = "pink_fill")
+#  }  
 })
 
-saveWorkbook(wb, here("results", paste0(filename_root, ".xlsx")), overwrite = TRUE)
+
+wb_save(wb, here("results", paste0(filename_root, ".xlsx")), overwrite = TRUE)
+
 print(Sys.time() - starttime)
