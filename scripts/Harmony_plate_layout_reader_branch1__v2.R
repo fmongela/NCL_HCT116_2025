@@ -16,7 +16,7 @@ library(tools) # for  file_path_sans_ext()
 library(RColorBrewer)
 
 xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
-running_script_version <- fritools::get_script_name()
+script_name <- sub(".*--file=", "", commandArgs(trailingOnly = FALSE)[grep("--file=", commandArgs(trailingOnly = FALSE))])
 
 
 #####
@@ -85,15 +85,23 @@ plot_plate <- function(data, variable, title) {
 var_list <- intersect(group_names$GroupName, names(plate_layout_tibble)) 
 plot_list <- map(var_list, ~ plot_plate(plate_layout_tibble, .x, sprintf("Variable: %s", .x)))
 
+# Get script name for labelling the plots
+script_name <- if (requireNamespace("rstudioapi", quietly = TRUE)) {
+  current_script <- basename(rstudioapi::getSourceEditorContext()$path)
+} else {
+  current_script <- "unknown_script.R"
+}
+
 # Combine plots using patchwork lib
 combined_plot <- wrap_plots(plot_list) +
   plot_layout(ncol = 2,
               widths = unit(c(12 / 2), "cm"),  
               heights = unit(c(8 / 2), "cm")) +
   plot_annotation(title = paste("Layout:", xml_file),
-                  caption = 'Disclaimer: None of these plots are insightful')
+                  caption = paste("Script: ", current_script))
 
-# combined_plot
+
+print(combined_plot)
 
 # Save PDF
 filename_root <- file_path_sans_ext(xml_file)
