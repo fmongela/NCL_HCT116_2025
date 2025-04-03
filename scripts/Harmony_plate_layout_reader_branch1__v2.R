@@ -16,10 +16,17 @@ library(tools) # for  file_path_sans_ext()
 library(RColorBrewer)
 
 xml_file <- "2577f4a7-3b8f-4c5c-aece-cda68e3d69c7.xml"
-doc <- read_xml(here("data", xml_file))
+running_script_version <- fritools::get_script_name()
 
-# Set up namespace
+
+#####
+########################################
+# 📥 Loading and processing XML Files                   #
+########################################
+# XML parse the file, set up the xmlns (namespace)
 # Extract GroupName attributes from <Registration>; groups names are nodes.
+
+doc <- read_xml(here("data", xml_file))
 ns <- xml_ns_rename(xml_ns(doc), d1 = "ns")
 
 group_names <- xml_find_all(doc, ".//ns:Registration/ns:Content", ns) %>%
@@ -55,6 +62,9 @@ plate_layout_tibble <- xml_find_all(doc, ".//ns:Well", ns) %>%
   select(where( ~ !all(is.na(.)))) %>%
   mutate(Row = LETTERS[pmin(Row, length(LETTERS))])
 
+# ========================================
+# =     📈     Design and Plot Graphs    =
+# ========================================
 # Define plot function
 plot_plate <- function(data, variable, title) {
   ggplot(data, aes(x = Column, y = Row, fill = .data[[variable]])) +
@@ -75,12 +85,13 @@ plot_plate <- function(data, variable, title) {
 var_list <- intersect(group_names$GroupName, names(plate_layout_tibble)) 
 plot_list <- map(var_list, ~ plot_plate(plate_layout_tibble, .x, sprintf("Variable: %s", .x)))
 
-# Combine plots
+# Combine plots using patchwork lib
 combined_plot <- wrap_plots(plot_list) +
   plot_layout(ncol = 2,
               widths = unit(c(12 / 2), "cm"),  
               heights = unit(c(8 / 2), "cm")) +
-  plot_annotation(title = paste("Layout:", xml_file))
+  plot_annotation(title = paste("Layout:", xml_file),
+                  caption = 'Disclaimer: None of these plots are insightful')
 
 # combined_plot
 
@@ -96,17 +107,22 @@ ggsave(
   dpi = 200
 )
 
-# Create Excel workbook
-# Create a workbook
-wb <- wb_workbook()
 
-wb <- reduce(var_list, function(wb, var_name) {
-  sub_layout <- plate_layout_tibble %>%
-    select(Row, Column, all_of(var_name)) %>%
+####################################
+#   🔢    Create Excel workbook    #
+####################################
+
+wb <- wb_workbook() # initialize a workbook
+
+# Loop through experimental variable, Make one sheet for each
+
+wb <- reduce(var_list, function(wb, var_name) {  # reduce() Returns one final workbook, not a list
+  sub_layout <- plate_layout_tibble %>% # make a tibble for each class of experimental vars
+    select(Row, Column, all_of(var_name)) %>% 
     pivot_wider(names_from = Column, values_from = all_of(var_name))
+  print (var_name)
   
-  
-  # Add sample data
+  # Add data to wb
       wb <- wb_add_worksheet(wb, var_name)
       wb <- wb_add_data(wb, sheet = var_name, x = sub_layout, start_row = 1, start_col = 1)
       wb <- wb_set_col_widths(wb, sheet = var_name, cols = 1:ncol(sub_layout), widths = "auto")
@@ -118,7 +134,7 @@ wb <- reduce(var_list, function(wb, var_name) {
     table() %>%
     names()
   
-num_colors <- length(unique_var_values)
+num_colors <- length(unique_var_values) # choose colors for each user experimental parameter
 palette_colors <- head(brewer.pal(min(num_colors, 12), "Set3"),num_colors)   
 color_map <- tibble (unique_var_values, palette_colors)
 # print(color_map)
@@ -128,14 +144,14 @@ color_map <- tibble (unique_var_values, palette_colors)
 for (i in 1:nrow(color_map)) {
   color <- color_map$palette_colors[i]
   element <- color_map$unique_var_values[i]
-  style_name <- paste0(element, "_style")
+  style_name <- paste0(element, "_style") # used to color format cell according to a rule
   # print(var_name)
   # print(i)
   # print(paste("element= ",element))
   # print(paste("color= ", color))
   # print(paste("style_name= ",style_name))
   
-# Create a style with pink background
+# Add a style to the xlsx document: in fine add one style per used experimental condition
 wb <- wb_add_dxfs_style(wb, 
                         name = style_name,
                         bg_fill = wb_color(hex = color))
