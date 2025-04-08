@@ -120,7 +120,7 @@ ggsave(
 #   🔢    Create Excel workbook    #
 ####################################
 
-wb <- wb_workbook() # initialize a workbook
+wb <- wb_workbook() # initialize workbook
 
 # Loop through experimental variable, Make one sheet for each
 
@@ -133,8 +133,7 @@ wb <- reduce(var_list, function(wb, var_name) {  # reduce() Returns one final wo
   # Add data to wb
       wb <- wb_add_worksheet(wb, var_name)
       wb <- wb_add_data(wb, sheet = var_name, x = sub_layout, start_row = 1, start_col = 1)
-  # Set column width to "auto" to keep long names readable  
-      wb <- wb_set_col_widths(wb, sheet = var_name, cols = 1:ncol(sub_layout), widths = "auto")
+
   
       unique_var_values <- sub_layout %>%
     slice(-1) %>%  # Remove first row
@@ -144,7 +143,7 @@ wb <- reduce(var_list, function(wb, var_name) {  # reduce() Returns one final wo
     names()
   
 num_colors <- length(unique_var_values) # choose colors for each user experimental parameter
-palette_colors <- head(brewer.pal(min(num_colors, 12), "Set3"),num_colors)   
+palette_colors <- head(brewer.pal(min(num_colors, 12), "YlGn"),num_colors)   
 color_map <- tibble (unique_var_values, palette_colors)
 # print(color_map)
 
@@ -164,6 +163,7 @@ for (i in 1:nrow(color_map)) {
 wb <- wb_add_dxfs_style(wb, 
                         name = style_name,
                         bg_fill = wb_color(hex = color))
+wb <- wb_set_col_widths(wb, sheet = var_name, cols = 1:ncol(sub_layout), widths = "auto")
 
 # Apply conditional formatting with the specified rule and style
 num_rows <- nrow(sub_layout)+1  # Total rows in sub_layout
