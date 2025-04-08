@@ -133,6 +133,7 @@ wb <- reduce(var_list, function(wb, var_name) {  # reduce() Returns one final wo
   # Add data to wb
       wb <- wb_add_worksheet(wb, var_name)
       wb <- wb_add_data(wb, sheet = var_name, x = sub_layout, start_row = 1, start_col = 1)
+  # Set column width to "auto" to keep long names readable  
       wb <- wb_set_col_widths(wb, sheet = var_name, cols = 1:ncol(sub_layout), widths = "auto")
   
       unique_var_values <- sub_layout %>%
